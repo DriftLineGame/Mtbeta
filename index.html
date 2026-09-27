@@ -143,6 +143,8 @@ button:focus-visible,button.pad-focus:focus{outline:3px solid var(--hi);outline-
 .pbtn{width:var(--pb);height:var(--pb);border-radius:50%;border:2px solid rgba(245,246,239,.42);background:rgba(17,32,22,.48);display:grid;place-items:center;font-family:var(--disp);font-weight:700;font-size:calc(var(--pb)*.18);line-height:1;touch-action:none;padding:0}
 .pbtn *{pointer-events:none}
 .pbtn svg{width:calc(var(--pb)*.34);height:calc(var(--pb)*.34);display:block;margin:0 auto 2px}
+.pbtn.trick{width:calc(var(--pb)*.82);height:calc(var(--pb)*.82);justify-self:center;visibility:hidden;background:rgba(243,193,58,.3);border-color:var(--hi);font-size:calc(var(--pb)*.16)}
+#touch.air .pbtn.trick{visibility:visible}
 .pbtn.on{background:rgba(243,193,58,.88);color:var(--hi-ink);border-color:var(--hi)}
 @media (max-height:420px){#touch{--pb:calc(72px*var(--cs));--sb:calc(120px*var(--cs));--edge:16px}}
 
@@ -318,7 +320,7 @@ dl.keys dt{font-family:var(--disp);font-weight:700;font-size:16px;color:var(--hi
       <li><b>Junctions.</b> Trails split and join. Signs and buttons show where each line goes. Your time follows the lines you ride.</li>
       <li><b>Traverses.</b> Highline, Long Haul and Sidewinder cut across the mountain. At a junction you can turn onto the trail they meet. Everywhere else they bridge over it, or drop over it, so you can keep going.</li>
       <li><b>Career.</b> Every trail and link in order, from green to double black. You start at the top of each one; reach the end and it's done. Each trail you finish unlocks a colour in the Garage.</li>
-      <li><b>Flips.</b> Off the biggest jumps, tap forward three times quickly in the air for a front flip, or back three times for a backflip. On a touchscreen that's the stick, on a keyboard W or S, on a controller the left stick. Small jumps don't give you enough air.</li>
+      <li><b>Flips.</b> In the air a Flip button appears above Pedal. Tap it for a backflip, or hold the stick forward while you tap it for a front flip. Keyboard: F (hold W for a front flip). Controller: ○ (stick forward for a front flip). You can also tap forward or back three times quickly. It always goes, but on a small jump you'll land halfway round and crash, so save it for the big ones.</li>
       <li><b>E-bike.</b> Pick it in the Garage. Pedalling on the e-bike boosts you at double power, shown by the battery on the left of the screen. A full battery gives 20 seconds of full boost. Coast or brake and it charges back up in 20 seconds. Run it flat and it has to charge fully before it boosts again.</li>
       <li><b>Garage.</b> Pick the trail bike or the downhill bike (more travel and takes bigger landings, but slower to pedal), then colours for the frame, fork, rims and the rider's kit.</li>
       <li><b>Chairlift.</b> Finish a run and choose Ride the chairlift, or roll into the loading area in the meadow. Two minutes to the top, drag to look around, skip any time.</li>
@@ -351,6 +353,7 @@ dl.keys dt{font-family:var(--disp);font-weight:700;font-size:16px;color:var(--hi
 <div id="touch" hidden>
   <div id="stickZone"><div id="stickBase" class="idle"><div id="stickKnob"></div></div></div>
   <div id="pedals">
+    <button class="pbtn trick" id="btnTrick" aria-label="Flip"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 14a7 7 0 1 1 3 5.7" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><path d="M3.2 9.6 5 14l4.3-1.9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Flip</span></button>
     <button class="pbtn" id="btnPedal" aria-label="Pedal"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16 12 7 20 16" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Pedal</span></button>
     <button class="pbtn" id="btnBrake" aria-label="Brake"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8 12 17 20 8" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Brake</span></button>
   </div>
@@ -2604,13 +2607,14 @@ function flipInput(){ // counts taps on "forward" and "back" (stick, W/S, or the
   if(d&&d!==FL.prev){const now=performance.now();FL.taps=FL.taps.filter(q=>q.d===d&&now-q.t<900);FL.taps.push({d,t:now});
     if(FL.taps.length>=3){FL.taps=[];tryFlip(d);}}
   FL.prev=d;}
+// d>0 front flip, d<0 backflip. It always goes: as quick as it can be (0.6 s) if the jump is short, and on a small jump you land halfway round
 function tryFlip(d){const b=bike;if(state!=='ride'||FL.active||b.contact[0]||b.contact[1])return;
-  const rem=flightLeft(),total=b.air+rem;
-  if(total<FLIP_AIR||rem<0.5){toast('Not enough air','Flips only work off the big jumps',1100);return;}
-  FL.active=true;FL.dir=d>0?-1:1;FL.t=0;FL.dur=clamp(rem-0.12,0.5,1.0);FL.ang=0;EV.takeoff=Math.max(EV.takeoff,9);}
+  const rem=flightLeft();
+  FL.active=true;FL.dir=d>0?-1:1;FL.t=0;FL.dur=clamp(rem-0.12,0.6,1.0);FL.ang=0;EV.takeoff=Math.max(EV.takeoff,9);}
+function flipButton(){tryFlip((input.lean||0)>0.4?1:-1);}
 function flipReset(){FL.active=false;FL.ang=0;FL.t=0;FL.taps=[];}
 function flipStep(dt,inAir){if(!FL.active)return;FL.t+=dt;const p=Math.min(1,FL.t/FL.dur);FL.ang=FL.dir*2*Math.PI*p*p*(3-2*p);
-  if(p>=1||(!inAir&&p>=0.8)){const name=FL.dir>0?'Backflip':'Front flip';flipReset();if(run.active)run.flips=(run.flips||0)+1;toast(name,'Clean!',1300);return;}
+  if(p>=1||(!inAir&&p>=0.85)){const name=FL.dir>0?'Backflip':'Front flip';flipReset();if(run.active)run.flips=(run.flips||0)+1;toast(name,'Clean!',1300);return;}
   if(!inAir){flipReset();crash('Landed mid flip');}}
 function gameStep(dt){
   const L=physStep(dt);const b=bike;const sp=b.vel.length();
@@ -2675,7 +2679,7 @@ function updateMenuCam(dt){
 
 // ---------- input ----------
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();input.keys[k]=true;
-  if(state==='ride'){if(k==='r')respawnNear();if(k==='t')respawnTop();}
+  if(state==='ride'){if(k==='r')respawnNear();if(k==='t')respawnTop();if(k==='f'&&!e.repeat)tryFlip(input.keys['w']||input.keys['arrowup']?1:-1);}
   if(k==='c'&&(state==='ride'||state==='crash'||state==='menu'))toggleCam();
   if((k==='escape'||k==='p')&&(state==='ride'||state==='crash'||state==='lift'))togglePause();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)&&state!=='menu')e.preventDefault();});
@@ -2697,6 +2701,7 @@ const touchState={stickId:null,sx:0,sy:0,val:0,valY:0,pedalId:null,brakeId:null}
   const hold=(el,key)=>{el.addEventListener('pointerdown',e=>{touchState[key]=e.pointerId;try{el.setPointerCapture(e.pointerId);}catch(_){}el.classList.add('on');e.preventDefault();});
     const up=e=>{if(touchState[key]===e.pointerId){touchState[key]=null;el.classList.remove('on');}};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);el.addEventListener('lostpointercapture',up);};
   hold($('btnPedal'),'pedalId');hold($('btnBrake'),'brakeId');
+  $('btnTrick').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();flipButton();});
   document.addEventListener('contextmenu',e=>e.preventDefault());
 })();
 function readInput(dt){
@@ -3078,6 +3083,7 @@ function pollPad(inAir){
       if(l2>0.04){input.brake=true;input.brakeAmt=val(BTN.L2)>0.04?Math.max(val(BTN.L2),on(BTN.SQ)?1:0):1;}}
     if(edge(BTN.OPT))togglePause();
     if(edge(BTN.TRI)&&state==='ride')respawnNear();
+    if(edge(BTN.O)&&state==='ride')tryFlip(ly<-0.4?1:-1);
     if(edge(BTN.SHARE))showMap(true);
     if(edge(BTN.UP))toggleCam();
     if(JX.node&&(edge(BTN.L1)||edge(BTN.LEFT)||edge(BTN.R1)||edge(BTN.RIGHT))){const dir=edge(BTN.L1)||edge(BTN.LEFT)?-1:1;JX.choice=clamp(JX.choice+dir,0,JX.node.out.length-1);renderJunctionHUD();}
@@ -3670,11 +3676,13 @@ function adaptQuality(dt){ // lower the render resolution if frames get slow, ra
   let np=pr;if(avg>0.022&&pr>0.75)np=Math.max(0.75,pr-0.2);else if(avg<0.0135&&pr<PR_MAX())np=Math.min(PR_MAX(),pr+0.1);
   if(np!==pr){pr=np;renderer.setPixelRatio(pr);resize();}
 }
+let touchAir=false;
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min((now-lastT)/1000,0.1);lastT=now;
   if(state==='loading')return;
   readInput(dt);if(state==='ride'&&!paused)flipInput();
+  { const inAir=state==='ride'&&!paused&&!bike.contact[0]&&!bike.contact[1]&&bike.air>0.08&&!FL.active;if(inAir!==touchAir){touchAir=inAir;$('touch').classList.toggle('air',inAir);}}
   if(state==='menu')updateMenuCam(dt);
   else if(state==='garage'){updateBikeVisual();updateGarageCam(dt);}
   else if(!paused){
