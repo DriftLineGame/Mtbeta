@@ -320,6 +320,7 @@ dl.keys dt{font-family:var(--disp);font-weight:700;font-size:16px;color:var(--hi
       <li><b>Junctions.</b> Trails split and join. Signs and buttons show where each line goes. Your time follows the lines you ride.</li>
       <li><b>Traverses.</b> Highline, Long Haul and Sidewinder cut across the mountain. At a junction you can turn onto the trail they meet. Everywhere else they bridge over it, or drop over it, so you can keep going.</li>
       <li><b>Career.</b> Every trail and link in order, from green to double black. You start at the top of each one; reach the end and it's done. Each trail you finish unlocks a colour in the Garage.</li>
+      <li><b>E-moto.</b> The electric dirt bike in the Garage. Pedal becomes Gas: a throttle with three times the e-bike's pull. The battery lasts about 100 seconds flat out and only charges while you brake with the wheels rolling, 1% a second. Run it flat and you coast.</li>
       <li><b>Flips.</b> In the air a Flip button appears above Pedal. Tap it for a backflip, or hold the stick forward while you tap it for a front flip. Keyboard: F (hold W for a front flip). Controller: ○ (stick forward for a front flip). You can also tap forward or back three times quickly. It always goes, but on a small jump you'll land halfway round and crash, so save it for the big ones.</li>
       <li><b>E-bike.</b> Pick it in the Garage. Pedalling on the e-bike boosts you at double power, shown by the battery on the left of the screen. A full battery gives 20 seconds of full boost. Coast or brake and it charges back up in 20 seconds. Run it flat and it has to charge fully before it boosts again.</li>
       <li><b>Garage.</b> Pick the trail bike or the downhill bike (more travel and takes bigger landings, but slower to pedal), then colours for the frame, fork, rims and the rider's kit.</li>
@@ -2087,11 +2088,11 @@ const bikeParts={};
 const ROTOR_MAT=new THREE.MeshStandardMaterial({color:0xc9ccd0,metalness:0.55,roughness:0.3,side:THREE.DoubleSide});
 const BIKE_MATS=(()=>{const std=(c,r,m)=>new THREE.MeshStandardMaterial({color:col(c),roughness:r,metalness:m});
   const gloss=(c,r,m)=>new THREE.MeshPhysicalMaterial({color:col(c),roughness:r,metalness:m,clearcoat:1,clearcoatRoughness:0.1});
-  return {batt:std(0x1c1e21,0.45,0.35),led:new THREE.MeshBasicMaterial({color:0x5cf08a}),frame:gloss(0x2a8a93,0.38,0.25),chain:std(0x55585c,0.4,0.6),alloy:std(0x1b1c1e,0.35,0.5),black:std(0x2e3034,0.5,0.1),fork:gloss(0xe0ad4c,0.22,0.55),tire:std(0x242424,0.95,0),rim:std(0x34363a,0.45,0.15),gum:std(0xa9814f,0.85,0),
+  return {batt:std(0x1c1e21,0.45,0.35),led:new THREE.MeshBasicMaterial({color:0x5cf08a}),frame:gloss(0x2a8a93,0.38,0.25),plate:std(0xeeeeea,0.5,0.05),chain:std(0x55585c,0.4,0.6),alloy:std(0x1b1c1e,0.35,0.5),black:std(0x2e3034,0.5,0.1),fork:gloss(0xe0ad4c,0.22,0.55),tire:std(0x242424,0.95,0),rim:std(0x34363a,0.45,0.15),gum:std(0xa9814f,0.85,0),
     steel:std(0xb9bcbf,0.35,0.3),grip:std(0x151515,0.9,0),glove:std(0x2c2f33,0.85,0),cuff:std(0xf3c13a,0.7,0),sleeve:std(0x364a5c,0.9,0),decal:std(0xf3c13a,0.5,0.1),
     spring:std(0xe2622a,0.4,0.3),caliper:std(0x333333,0.4,0.3)};})();
 // two bikes: the trail bike, and a downhill bike with a dual-crown fork, a coil shock, a slacker head angle and fatter tyres
-function buildBikeModel(dh,eb){
+function buildBikeModel(dh,eb,moto){
   const M=BIKE_MATS,mFrame=M.frame,mBlack=M.black,mGold=M.fork,mTire=M.tire,mRim=M.rim,mGum=M.gum,mSteel=M.steel,mGrip=M.grip,mGlove=M.glove,mCuff=M.cuff,mSleeve=M.sleeve,mDecal=M.decal;
   const G0=new THREE.Group();bikeBody.add(G0);const P={};
   const up=new V3(0,1,0);
@@ -2164,12 +2165,16 @@ function buildBikeModel(dh,eb){
   const ring=new THREE.Mesh(new THREE.TorusGeometry(0.085,0.007,6,32),mSteel);ring.rotation.y=Math.PI/2;ring.position.x=0.052;crank.add(ring);
   const spider=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.012,10),mBlack);spider.rotation.z=Math.PI/2;spider.position.x=0.05;crank.add(spider);
   const axle=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.15,10),mBlack);axle.rotation.z=Math.PI/2;crank.add(axle);
-  for(const sx of [-1,1]){const arm=new THREE.Mesh(new THREE.BoxGeometry(0.022,0.03,0.18),mBlack);arm.position.set(sx*0.072,0,sx*-0.075);crank.add(arm);}
+  if(!moto)for(const sx of [-1,1]){const arm=new THREE.Mesh(new THREE.BoxGeometry(0.022,0.03,0.18),mBlack);arm.position.set(sx*0.072,0,sx*-0.075);crank.add(arm);}
   { // chainring teeth and a narrow-wide ring look
     const teeth=[];for(let i=0;i<32;i++){const a=i/32*Math.PI*2;const g=new THREE.BoxGeometry(0.006,0.01,0.008);g.translate(0,0.094,0);g.rotateX(a);g.translate(0.052,0,0);teeth.push(g);}
     crank.add(new THREE.Mesh(mergeGeoms(teeth),mSteel));}
   // flat pedals with pins, thin concave platforms
-  P.pedals=[-1,1].map(sx=>{const p=new THREE.Group();const parts=[];
+  if(moto)P.pedals=[-1,1].map(sx=>{const p=new THREE.Group(); // footpegs, not pedals
+    const peg=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.1,10),M.alloy);peg.rotation.z=Math.PI/2;peg.position.x=sx*0.04;p.add(peg);
+    const teeth=[];for(let k=0;k<5;k++){const g=new THREE.BoxGeometry(0.006,0.01,0.034);g.translate(sx*(0.004+k*0.018),0.016,0);teeth.push(g);}p.add(new THREE.Mesh(mergeGeoms(teeth),mSteel));
+    const mount=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.05,0.04),mBlack);mount.position.set(-sx*0.012,0.02,0);p.add(mount);G0.add(p);p.userData.sx=sx;return p;});
+  else P.pedals=[-1,1].map(sx=>{const p=new THREE.Group();const parts=[];
     for(const z of [-0.045,0.045]){const g=new THREE.BoxGeometry(0.1,0.02,0.012);g.translate(sx*0.05,0,z);parts.push(g);}
     for(const x of [0.005,0.095]){const g=new THREE.BoxGeometry(0.01,0.016,0.1);g.translate(sx*x,0,0);parts.push(g);}
     const body=new THREE.Mesh(mergeGeoms(parts),M.alloy);p.add(body);
@@ -2251,6 +2256,13 @@ function buildBikeModel(dh,eb){
   const fw=wheel();fw.position.set(0,0,-0.044);lowers.add(fw);P.frontWheel=fw;
   { const ax=new THREE.Mesh(new THREE.CylinderGeometry(0.009,0.009,0.15,10),M.alloy);ax.rotation.z=Math.PI/2;ax.position.set(0,0,-0.044);lowers.add(ax);
     const lev=new THREE.Mesh(new THREE.BoxGeometry(0.01,0.012,0.06),M.alloy);lev.position.set(0.08,0,-0.07);lowers.add(lev);}
+  if(moto){ // electric dirt bike: a big battery filling the frame, a chunkier motor, a number plate and a front fender
+    const tank=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.2,0.3),M.batt);tank.position.set(0,0.13,-0.1);tank.rotation.x=-0.5;G0.add(tank);
+    for(const sx of [-1,1]){const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.003,0.05,0.26),mDecal);stripe.position.set(sx*0.056,0.15,-0.1);stripe.rotation.x=-0.5;G0.add(stripe);}
+    const mot=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.13,24),M.batt);mot.rotation.z=Math.PI/2;mot.position.copy(BB).add(new V3(0,0.05,-0.06));G0.add(mot);
+    const plate=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.16,0.012),M.plate);plate.position.set(0,-0.05,-0.065);plate.rotation.x=-0.25;P.bars.add(plate);
+    const num=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.08,0.004),mDecal);num.position.set(0,-0.05,-0.073);num.rotation.x=-0.25;P.bars.add(num);
+    const fend=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.012,0.4),M.plate);fend.position.set(0,0.42,-0.05);fend.rotation.x=-hAng+0.18;P.lowers.add(fend);}
   if(eb){ // e-bike: a battery wrapped round the down tube, a motor at the cranks, and a little display on the bars
     const a=new V3(0,0.215,-0.315),d=new V3().subVectors(BB,a);const L=d.length();d.normalize();
     const bat=new THREE.Mesh(new THREE.BoxGeometry(0.092,L*0.62,0.1),M.batt);bat.position.copy(a).addScaledVector(d,L*0.45);bat.quaternion.setFromUnitVectors(up,d);G0.add(bat);
@@ -2261,13 +2273,16 @@ function buildBikeModel(dh,eb){
     const scr=new THREE.Mesh(new THREE.BoxGeometry(0.048,0.003,0.03),M.led);scr.position.set(-0.08,0.035,0.0);P.bars.add(scr);}
   return {group:G0,parts:P};
 }
-const BIKES={trail:buildBikeModel(false),dh:buildBikeModel(true),ebike:buildBikeModel(true,true)};
+const BIKES={trail:buildBikeModel(false),dh:buildBikeModel(true),ebike:buildBikeModel(true,true),moto:buildBikeModel(true,true,true)};
 // how each bike rides: travel, pedalling power, and how hard a landing it takes before you crash
-const BIKE_STATS={trail:{trv:[0.16,0.15],power:520,crash:6.5},dh:{trv:[0.2,0.2],power:465,crash:8.2},ebike:{trv:[0.2,0.2],power:465,crash:8.2,e:true}};
+const BIKE_STATS={trail:{trv:[0.16,0.15],power:520,crash:6.5},dh:{trv:[0.2,0.2],power:465,crash:8.2},ebike:{trv:[0.2,0.2],power:465,crash:8.2,e:true},moto:{trv:[0.22,0.22],power:465,crash:8.5,e:true,moto:true}};
 // e-bike battery: 20 s of full boost from full; stop pedalling (or brake) and it charges back up in 20 s. Run it flat and it has to charge right up before it boosts again
-const EB={on:false,charge:1,locked:false,boosting:false,T:20};
+const EB={on:false,moto:false,kind:null,charge:1,locked:false,boosting:false,regen:false,T:20};
+// electric dirt bike: no pedalling, a throttle with three times the e-bike's pull. Its battery lasts five times as long (100 s flat out) and only charges while braking, 1% a second
+const MOTO={P:2800,F:1100,vmax:30,T:100,regen:0.01};
 let CRASH_IMPACT=6.5;
-function setBikeModel(kind){if(!BIKES[kind])kind='trail';EB.on=!!BIKE_STATS[kind].e;for(const k in BIKES)BIKES[k].group.visible=k===kind;Object.assign(bikeParts,BIKES[kind].parts);
+function setBikeModel(kind){if(!BIKES[kind])kind='trail';EB.on=!!BIKE_STATS[kind].e;EB.moto=!!BIKE_STATS[kind].moto;if(EB.kind!==kind){EB.kind=kind;EB.charge=1;EB.locked=false;}
+  { const b=document.getElementById('btnPedal');const sp=b&&b.querySelector('span');if(sp&&sp.lastChild)sp.lastChild.textContent=EB.moto?'Gas':'Pedal';if(b)b.setAttribute('aria-label',EB.moto?'Throttle':'Pedal');}for(const k in BIKES)BIKES[k].group.visible=k===kind;Object.assign(bikeParts,BIKES[kind].parts);
   const st=BIKE_STATS[kind];BK.TRV[0]=st.trv[0];BK.TRV[1]=st.trv[1];PH.POWER=st.power;CRASH_IMPACT=st.crash;}
 function mergeChildren(grp){ // merge the rigid parts of each moving group by material: far fewer draw calls
   if(grp.userData.noMerge)return;
@@ -2411,6 +2426,8 @@ function physStep(dt){
     // grip follows the average tyre load, so a wheel skipping over a rock doesn't instantly lose the line
     b.Ngrip=lerp(b.Ngrip||N,N,0.25);const Ng=b.Ngrip;
     const boost=EB.on&&pAmt>0&&!EB.locked&&EB.charge>0;EB.boosting=boost;
+    if(EB.moto){if(boost){const wh=clamp((b.pitch-Math.atan2(b.vel.y,Math.max(1,Math.abs(vf)))-0.25)/0.3,0,1); /* wheelie control: ease off as the front comes up */const Fp=Math.min(MOTO.F,MOTO.P/Math.max(vf,1.2))*clamp((MOTO.vmax-vf)/4,0,1)*pAmt*(1-0.85*wh);Flong+=Fp;b.vel.addScaledVector(fDir,Fp/PH.M*dt);}}
+    else 
     if(pAmt>0){const Fp=boost?Math.min(860,2*PH.POWER/Math.max(vf,1.2))*clamp((22-vf)/4,0,1)*pAmt:Math.min(430,PH.POWER/Math.max(vf,1.2))*clamp((16.5-vf)/4,0,1)*pAmt;Flong+=Fp;b.vel.addScaledVector(fDir,Fp/PH.M*dt);}
     if(bAmt>0){
       if(vf>0.25){const want=Math.min(0.78*Ng,820)*bAmt;const lim=mu*Ng*0.72;let Fb=Math.min(want,lim);
@@ -2442,11 +2459,14 @@ function physStep(dt){
     b.air+=dt;b.steer*=1-dt*2;b.yaw+=-input.steer*0.9*dt;b.lean*=1-dt*2;b.slip*=0.9;b.latA=0;b.Ngrip=0;
     const hs=Math.hypot(b.vel.x,b.vel.z);b.vf=hs*(b.vel.x*hf.x+b.vel.z*hf.z>=0?1:-1);
   }
-  if(EB.on){if(pAmt>0&&!EB.locked&&anyContact){EB.charge=Math.max(0,EB.charge-pAmt*dt/EB.T);if(EB.charge<=0)EB.locked=true;}
+  EB.regen=false;
+  if(EB.moto){if(pAmt>0&&anyContact&&EB.charge>0)EB.charge=Math.max(0,EB.charge-pAmt*dt/MOTO.T);
+    if(bAmt>0&&anyContact&&b.vf>1){EB.charge=Math.min(1,EB.charge+MOTO.regen*dt);EB.regen=true;}}
+  else if(EB.on){if(pAmt>0&&!EB.locked&&anyContact){EB.charge=Math.max(0,EB.charge-pAmt*dt/EB.T);if(EB.charge<=0)EB.locked=true;}
     else if(pAmt===0){EB.charge=Math.min(1,EB.charge+dt/EB.T);if(EB.charge>=1)EB.locked=false;}}
   if(!EB.on||!anyContact||pAmt===0)EB.boosting=false;
   // braking pitches you forward; on steep ground riders drop their hips back, which shortens that lever
-  const steepDown=clamp(-Math.sin(b.pitch)/0.3,0,1);torque+=Flong*(Flong<0?0.55-0.25*steepDown:0.55);
+  const steepDown=clamp(-Math.sin(b.pitch)/0.3,0,1);torque+=Flong*(Flong<0?0.55-0.25*steepDown:EB.moto&&EB.boosting?0.12:0.55); // on the e-moto the rider sits forward over the bars, so the throttle doesn't flip you
   if(anyContact){b.pw+=(torque/PH.I)*dt;b.pw*=1-dt*2.5;if(b.contact[1]&&!b.contact[0])dropPull(b);}
   else{ // in the air: the rider levels the bike toward the landing (strongly with assist), and can push the bars forward or pull back
     const hs=Math.hypot(b.vel.x,b.vel.z);const traj=Math.atan2(b.vel.y,Math.max(hs,1));
@@ -2854,10 +2874,10 @@ const audio=(()=>{
     V.sprayG.gain.setTargetAtTime(carve*0.25*Math.min(1,sp/10),t,0.05);
     if(carve>0.25){bermOn=true;bermPeak=Math.max(bermPeak,carve);}else if(bermOn&&carve<0.08){bermOn=false;if(bermPeak>0.35)roost(bermPeak);bermPeak=0;}
     // freewheel buzz whenever the wheel turns and you're not pedalling, on the ground or in the air
-    const wsp=Math.abs(st.vf),coasting=(riding||st.crash)&&!st.pedal&&wsp>0.7;const clk=clamp(wsp/(2*Math.PI*BK.RW)*12,3,110); // 12 clicks a turn: about 80 a second flat out
+    const wsp=Math.abs(st.vf),coasting=(riding||st.crash)&&!st.pedal&&wsp>0.7&&!(typeof EB!=='undefined'&&EB.moto);const clk=clamp(wsp/(2*Math.PI*BK.RW)*12,3,110); // 12 clicks a turn: about 80 a second flat out
     V.hub.frequency.setTargetAtTime(clk,t,0.05);
-    { const mf=90+wsp*26,on=typeof EB!=='undefined'&&EB.boosting&&riding;V.mot.frequency.setTargetAtTime(mf,t,0.08);V.mot2.frequency.setTargetAtTime(mf*3.02,t,0.08);V.motF.frequency.setTargetAtTime(500+wsp*70,t,0.1);
-      V.motG.gain.setTargetAtTime(on?0.05+Math.min(0.05,wsp*0.004):0,t,on?0.12:0.06);}
+    { const mo=typeof EB!=='undefined'&&EB.moto,mf=mo?60+wsp*42:90+wsp*26,on=typeof EB!=='undefined'&&EB.boosting&&riding;V.mot.frequency.setTargetAtTime(mf,t,0.08);V.mot2.frequency.setTargetAtTime(mf*3.02,t,0.08);V.motF.frequency.setTargetAtTime((mo?700:500)+wsp*(mo?90:70),t,0.1);
+      V.motG.gain.setTargetAtTime(on?(mo?0.09+Math.min(0.08,wsp*0.004):0.05+Math.min(0.05,wsp*0.004)):0,t,on?0.1:0.06);}
     V.hubG.gain.setTargetAtTime(coasting?Math.min(1,0.0085*clk)*(st.air?1.3:1):0,t,coasting?0.04:0.025);
     V.knob.frequency.setTargetAtTime(clamp(sp/0.052,12,900),t,0.05);V.knobF.frequency.setTargetAtTime(clamp(180+sp*38,180,900),t,0.08);
     V.knobG.gain.setTargetAtTime(gnd&&surf!=='wood'?Math.min(0.09,sp*0.007)*(surf==='rock'?1.3:1):0,t,0.05);
@@ -3164,12 +3184,12 @@ function updateRider(){
   const R=RIDER,b=bike,P=R.P,Q=riderPts,now=performance.now();const dt=R.fixDt||Math.min(0.1,(now-(R.last||now))/1000);R.last=now;
   const riding=state==='ride'&&!paused,ground=b.contact[0]||b.contact[1],sp=b.vel.length();
   // cranks: turn while you pedal, settle level (your good foot forward) while you coast
-  const pedalling=riding&&input.pedal&&ground;
+  const pedalling=riding&&input.pedal&&ground&&!EB.moto;
   if(pedalling)R.phi+=clamp(sp/BK.RW*0.36,5,11)*dt*(input.pedalAmt==null?1:0.5+0.5*input.pedalAmt);
   else if(riding||state==='crash'){const tgt=Math.round(R.phi/Math.PI)*Math.PI;R.phi+=clamp(tgt-R.phi,-6*dt,6*dt);}
   const phi=R.phi;bikeParts.crank.rotation.x=-phi;
   const BBy=-0.28,BBz=0.16,CR=0.17;
-  for(const pd of bikeParts.pedals){const sx=pd.userData.sx,s=sx>0?1:-1;pd.position.set(sx*0.085,BBy-s*CR*Math.sin(phi),BBz-s*CR*Math.cos(phi));}
+  for(const pd of bikeParts.pedals){const sx=pd.userData.sx,s=sx>0?1:-1;if(EB.moto)pd.position.set(sx*0.09,BBy+0.04,BBz+0.05);else pd.position.set(sx*0.085,BBy-s*CR*Math.sin(phi),BBz-s*CR*Math.cos(phi));}
   if(!R.g.visible)return;
   if(RAG.on){ragStep(dt);ragPose(dt);return;}
   bikeRoot.updateMatrixWorld(true);
@@ -3178,6 +3198,7 @@ function updateRider(){
   let hz=0.36+0.03*aggr,hy=0.47-0.06*aggr,ta=0.86+0.16*aggr;
   if(pedalling){hz-=0.1;hy+=0.01-0.03*Math.abs(Math.cos(phi));ta-=0.12;}
   if(braking){hz+=0.07;hy-=0.04;ta+=0.05;}
+  if(EB.moto&&riding&&input.pedal&&ground){hz-=0.06;ta+=0.08;} // on the gas: weight forward to keep the front down
   if(air){hy+=0.05;hz-=0.07*lean;ta+=0.1*lean-0.04;}
   if(FL.active){const k=Math.sin(Math.PI*Math.min(1,FL.t/FL.dur));hy-=0.12*k;ta+=0.35*k;} // tuck in tight through a flip
   // landings: the legs and arms soak it up. A kick on touchdown (bigger for more air and a harder hit) drives a springy squat that bottoms out and pushes back up
@@ -3404,7 +3425,8 @@ function renderGarage(){
   if(garTab==='bike'){
     h+=`<div class="bike-pick"><button class="bike-card" data-bike="trail" aria-pressed="${bk==='trail'}"><b>Trail bike</b><span>150 mm of travel. Light, quick to pedal, easy to throw around.</span></button>
       <button class="bike-card" data-bike="dh" aria-pressed="${bk==='dh'}"><b>Downhill bike</b><span>200 mm, dual crown and a coil shock. Soaks up big landings, slower to pedal.</span></button>
-      <button class="bike-card" data-bike="ebike" aria-pressed="${bk==='ebike'}"><b>E-bike</b><span>The downhill bike with a motor. Double pedal power for 20 seconds, then coast to recharge.</span></button></div>`;
+      <button class="bike-card" data-bike="ebike" aria-pressed="${bk==='ebike'}"><b>E-bike</b><span>The downhill bike with a motor. Double pedal power for 20 seconds, then coast to recharge.</span></button>
+      <button class="bike-card" data-bike="moto" aria-pressed="${bk==='moto'}"><b>E-moto</b><span>Electric dirt bike. No pedalling, just throttle, three times the e-bike's pull. Big battery that only charges when you brake.</span></button></div>`;
     h+=swatchRow('frame')+swatchRow('fork')+swatchRow('rim');
   }else h+=swatchRow('jersey')+swatchRow('stripe')+swatchRow('pants')+swatchRow('helmet');
   h+=`<p class="gar-note">${careerDoneCount()} of ${REWARDS.length} colours won. Finish trails in Career to unlock the rest.</p>`;
@@ -3661,10 +3683,10 @@ function updateShadowsAndCulling(fp){
 let ebShown=false,ebLast='';
 function updateEbat(){const el=$('ebat');const show=EB.on&&(state==='ride'||state==='crash')&&!paused;
   if(show!==ebShown){el.hidden=!show;ebShown=show;}if(!show)return;
-  const c=EB.charge,pct=Math.round(c*100);const col=EB.locked?'#ff7a5c':c>0.5?'#7fd36b':c>0.2?'#f3c13a':'#ff7a5c';
-  const lbl=EB.locked?'Charging':EB.boosting?'Boost':c<1?'Ready':'Full';const key=pct+lbl+col;if(key===ebLast)return;ebLast=key;
+  const c=EB.charge,pct=Math.round(c*100);const col=EB.locked||(EB.moto&&c<=0)?'#ff7a5c':EB.moto&&EB.regen?'#6fc3ff':c>0.5?'#7fd36b':c>0.2?'#f3c13a':'#ff7a5c';
+  const lbl=EB.moto?(c<=0?'Empty':EB.regen?'Regen':EB.boosting?'Gas':'Battery'):EB.locked?'Charging':EB.boosting?'Boost':c<1?'Ready':'Full';const key=pct+lbl+col;if(key===ebLast)return;ebLast=key;
   $('ebFill').style.height=(c*100).toFixed(1)+'%';$('ebPct').textContent=pct+'%';$('ebLbl').textContent=lbl;el.style.setProperty('--bc',col);
-  el.classList.toggle('boost',EB.boosting);el.classList.toggle('low',EB.locked);}
+  el.classList.toggle('boost',EB.boosting);el.classList.toggle('low',EB.locked||(EB.moto&&c<=0));}
 // ---------- main loop ----------
 const STEP=1/240;let acc=0,lastT=performance.now(),hudT=0,mapT=0,lodT=0,perfT=0,perfN=0,perfSum=0,skyT=0;
 function resize(){renderer.setSize(window.innerWidth,window.innerHeight,false);camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();}
