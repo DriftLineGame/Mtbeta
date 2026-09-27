@@ -318,6 +318,7 @@ dl.keys dt{font-family:var(--disp);font-weight:700;font-size:16px;color:var(--hi
       <li><b>Junctions.</b> Trails split and join. Signs and buttons show where each line goes. Your time follows the lines you ride.</li>
       <li><b>Traverses.</b> Highline, Long Haul and Sidewinder cut across the mountain. At a junction you can turn onto the trail they meet. Everywhere else they bridge over it, or drop over it, so you can keep going.</li>
       <li><b>Career.</b> Every trail and link in order, from green to double black. You start at the top of each one; reach the end and it's done. Each trail you finish unlocks a colour in the Garage.</li>
+      <li><b>Flips.</b> Off the biggest jumps, tap forward three times quickly in the air for a front flip, or back three times for a backflip. On a touchscreen that's the stick, on a keyboard W or S, on a controller the left stick. Small jumps don't give you enough air.</li>
       <li><b>E-bike.</b> Pick it in the Garage. Pedalling on the e-bike boosts you at double power, shown by the battery on the left of the screen. A full battery gives 20 seconds of full boost. Coast or brake and it charges back up in 20 seconds. Run it flat and it has to charge fully before it boosts again.</li>
       <li><b>Garage.</b> Pick the trail bike or the downhill bike (more travel and takes bigger landings, but slower to pedal), then colours for the frame, fork, rims and the rider's kit.</li>
       <li><b>Chairlift.</b> Finish a run and choose Ride the chairlift, or roll into the loading area in the meadow. Two minutes to the top, drag to look around, skip any time.</li>
@@ -2447,7 +2448,7 @@ function physStep(dt){
   else{ // in the air: the rider levels the bike toward the landing (strongly with assist), and can push the bars forward or pull back
     const hs=Math.hypot(b.vel.x,b.vel.z);const traj=Math.atan2(b.vel.y,Math.max(hs,1));
     b.predT=(b.predT||0)-1;if(b.predT<=0||b.landSlope==null){b.predT=8;b.landSlope=predictLandSlope(b);}const gAng=b.landSlope;
-    b.gAng=gAng;const target=traj*0.3+gAng*0.7;const ln=clamp(input.lean||0,-1,1);
+    b.gAng=gAng;const target=traj*0.3+gAng*0.7;const ln=FL.active?0:clamp(input.lean||0,-1,1);
     const K=[5,12,26][settings.assist|0]*(1-0.85*Math.abs(ln));
     b.pw+=((target-b.pitch)*K-b.pw*(3+0.1*K)-ln*7.5)*dt+torque/PH.I*dt*0.3;}
   b.pitch+=b.pw*dt;
@@ -2497,7 +2498,7 @@ function placeBike(x,z,yaw,speed,pitch){
   const b=bike;b.yaw=yaw;b.pitch=pitch||0;b.pw=0;b.steer=0;b.lean=0;b.air=0;b.slip=0;b.impact=0;
   const h=Math.max(groundH(x,z),groundH(x-Math.sin(yaw)*0.62,z-Math.cos(yaw)*0.62),groundH(x+Math.sin(yaw)*0.62,z+Math.cos(yaw)*0.62));
   b.pos.set(x,h+BK.RW+0.27,z);b.vel.set(-Math.sin(yaw)*speed,0,-Math.cos(yaw)*speed);b.comp=[0,0];b.cprev=[0,0];b.z=[0,0];b.zv=[0,0];b.land=null;b.Ngrip=0;b.predT=0;b.landSlope=null;
-  EB.boosting=false;const L=locate(x,z);b.cur=L.t&&L.dist<L.t.w+2?L.t:null;b.curS=L.s;wasAir=false;camState.init=false;chase.init=false;if(typeof riderReset==='function')riderReset();
+  EB.boosting=false;flipReset();const L=locate(x,z);b.cur=L.t&&L.dist<L.t.w+2?L.t:null;b.curS=L.s;wasAir=false;camState.init=false;chase.init=false;if(typeof riderReset==='function')riderReset();
 }
 function respawnTop(){if(typeof liftRide!=='undefined'&&liftRide.on){liftRide.on=false;$('liftHud').hidden=true;$('speed').hidden=false;}placeBike(SPAWN.x,SPAWN.z,0,0,0);bike.finNote=false;cancelRun();setHint(true);JX.node=null;renderJunctionHUD();}
 function safeS(tr,s){
@@ -2518,12 +2519,12 @@ function respawnNear(){
 }
 function routeName(r){return r.map(id=>NET.byId[id].def.name).join(' → ');}
 function hardest(r){let best='green';for(const id of r){const d=NET.byId[id].def.diff;if(DIFF[d].rank>DIFF[best].rank)best=d;}return best;}
-function startRun(tr){run.active=true;run.route=[tr.id];run.t=0;run.air=0;run.top=0;run.crashes=0;run.startSeg=tr;updateRunChip();setHint(false);toast(tr.def.name,'Timer running');audio.beep();}
+function startRun(tr){run.active=true;run.route=[tr.id];run.t=0;run.air=0;run.top=0;run.crashes=0;run.flips=0;run.startSeg=tr;updateRunChip();setHint(false);toast(tr.def.name,'Timer running');audio.beep();}
 function cancelRun(){run.active=false;run.route=[];$('runChip').hidden=true;if(typeof CR!=='undefined'&&CR.active){CR.active=false;$('btnRestart').hidden=true;}}
 function updateRunChip(){const tr=bike.cur||run.startSeg;if(!tr)return;$('runSym').innerHTML=SYMSVG[DIFF[tr.def.diff].symbol];$('runName').textContent=tr.def.name;$('runChip').hidden=!run.active;
   $('runChip').style.setProperty('--c',tr.def.diff==='blue'?'#1f63c8':tr.def.diff==='green'?'#1f9d4a':'#f5f6ef');}
 function setHint(on){$('hint').hidden=!on;}
-function crash(reason){if(state!=='ride')return;state='crash';padRumble(1,1,380);crashT=0;stats.crashes++;if(run.active)run.crashes++;EV.crash=1;toast('Crashed',reason,1500);
+function crash(reason){if(state!=='ride')return;flipReset();state='crash';padRumble(1,1,380);crashT=0;stats.crashes++;if(run.active)run.crashes++;EV.crash=1;toast('Crashed',reason,1500);
   camState.cv.set(bike.vel.x*0.6,2.2,bike.vel.z*0.6);
   const rp=stats.repeat;if(rp&&rp.tr===bike.cur&&Math.abs(rp.s-bike.curS)<35)rp.n++;else stats.repeat={tr:bike.cur,s:bike.curS,n:1};
   stats.lastCrash={reason,trail:bike.cur&&bike.cur.id,s:bike.curS,v:bike.vel.length(),impact:bike.impact,pitch:bike.pitch};
@@ -2545,7 +2546,7 @@ function finishRun(){
   $('finTitle').innerHTML=SYMSVG[DIFF[hd].symbol];$('finTitle').append(document.createTextNode(run.route.length>1?'Run complete':NET.byId[run.route[0]].def.name));
   $('finRoute').textContent=routeName(run.route);$('finTime').textContent=fmtTime(t);
   const bestEl=$('finBest');bestEl.textContent=isBest?(prev?'New best on this line, down from '+fmtTime(prev):'First run on this line, saved as your best'):'Your best on this line is '+fmtTime(prev);bestEl.classList.toggle('new',isBest);
-  $('finStats').textContent=`Top speed ${Math.round(run.top*3.6)} km/h. ${run.air.toFixed(1)} s in the air. ${run.crashes} crash${run.crashes===1?'':'es'}.`;
+  $('finStats').textContent=`Top speed ${Math.round(run.top*3.6)} km/h. ${run.air.toFixed(1)} s in the air. ${run.flips?run.flips+' flip'+(run.flips===1?'':'s')+'. ':''}${run.crashes} crash${run.crashes===1?'':'es'}.`;
   state='finish';$('finish').hidden=false;$('touch').hidden=true;run.active=false;$('runChip').hidden=true;JX.node=null;renderJunctionHUD();refreshMenu();audio.finish();
   setTimeout(()=>{try{$('btnFinTop').focus({preventScroll:true});}catch(e){}},50);
 }
@@ -2593,6 +2594,24 @@ function trackSegment(L){
   if(run.active&&NODE[nt.to].fin&&ns>nt.len-12){finishRun();return;}
   if(!run.active&&NODE[nt.to].fin&&ns>nt.len-12&&!b.finNote){b.finNote=true;toast('Bottom of the mountain','Roll to the chairlift, or pause to ride it up',2800);}
 }
+// ---------- flips: triple-tap forward (front flip) or back (backflip) in the air, big jumps only ----------
+const FLIP_AIR=1.2; // seconds of flight the jump has to give (the biggest jumps on the hill give about 1.4 s)
+const FL={active:false,dir:0,t:0,dur:1,ang:0,taps:[],prev:0};
+function flightLeft(){const b=bike;let x=b.pos.x,y=b.pos.y-0.64,z=b.pos.z,vx=b.vel.x,vy=b.vel.y,vz=b.vel.z;const h=0.02;
+  for(let t=0;t<4;t+=h){vy-=G*h;x+=vx*h;y+=vy*h;z+=vz*h;if(vy<0&&y<=groundH(x,z))return t;}return 4;}
+function flipInput(){ // counts taps on "forward" and "back" (stick, W/S, or the controller stick)
+  const l=input.lean||0;const d=l>0.55?1:l<-0.55?-1:Math.abs(l)<0.3?0:FL.prev;
+  if(d&&d!==FL.prev){const now=performance.now();FL.taps=FL.taps.filter(q=>q.d===d&&now-q.t<900);FL.taps.push({d,t:now});
+    if(FL.taps.length>=3){FL.taps=[];tryFlip(d);}}
+  FL.prev=d;}
+function tryFlip(d){const b=bike;if(state!=='ride'||FL.active||b.contact[0]||b.contact[1])return;
+  const rem=flightLeft(),total=b.air+rem;
+  if(total<FLIP_AIR||rem<0.5){toast('Not enough air','Flips only work off the big jumps',1100);return;}
+  FL.active=true;FL.dir=d>0?-1:1;FL.t=0;FL.dur=clamp(rem-0.12,0.5,1.0);FL.ang=0;EV.takeoff=Math.max(EV.takeoff,9);}
+function flipReset(){FL.active=false;FL.ang=0;FL.t=0;FL.taps=[];}
+function flipStep(dt,inAir){if(!FL.active)return;FL.t+=dt;const p=Math.min(1,FL.t/FL.dur);FL.ang=FL.dir*2*Math.PI*p*p*(3-2*p);
+  if(p>=1||(!inAir&&p>=0.8)){const name=FL.dir>0?'Backflip':'Front flip';flipReset();if(run.active)run.flips=(run.flips||0)+1;toast(name,'Clean!',1300);return;}
+  if(!inAir){flipReset();crash('Landed mid flip');}}
 function gameStep(dt){
   const L=physStep(dt);const b=bike;const sp=b.vel.length();
   const inAir=!b.contact[0]&&!b.contact[1];
@@ -2601,6 +2620,7 @@ function gameStep(dt){
   if(!inAir&&wasAir&&airTime>0.12){if(airTime>0.45)airFlash(airTime);if(run.active)run.air+=airTime;}
   wasAir=inAir;
   if(b.land&&!b.land.done){b.land.done=true;const a=b.land.air;if(a>0.25)padRumble(Math.min(1,0.2+a*0.35+b.impact*0.06),0.35,110+Math.min(a,2)*90);}
+  flipStep(dt,inAir);if(state!=='ride')return;
   if(b.impact>CRASH_IMPACT)return crash('Landed too hard');
   { // over the bars: nose far below the ground you're on (a steep landing lets you point down further than flat ground)
     const hx=-Math.sin(b.yaw),hz=-Math.cos(b.yaw);const gS=Math.atan((groundH(b.pos.x+hx*0.62,b.pos.z+hz*0.62)-groundH(b.pos.x-hx*0.62,b.pos.z-hz*0.62))/1.24);
@@ -2620,7 +2640,7 @@ const eyeAnchor=new THREE.Object3D();eyeAnchor.position.set(CAM.eye.x,CAM.eye.y+
 function baseFov(){const a=window.innerWidth/window.innerHeight;return a<1?102:a<1.6?90:86;}
 function updateBikeVisual(){
   const b=bike;
-  bikeRoot.position.copy(b.pos);bikeRoot.rotation.set(b.pitch,b.yaw,0,'YXZ');leanPivot.rotation.z=-b.lean*0.8;
+  bikeRoot.position.copy(b.pos);bikeRoot.rotation.set(b.pitch+FL.ang,b.yaw,0,'YXZ');leanPivot.rotation.z=-b.lean*0.8;
   bikeBody.position.y=0.63+(b.z[0]+b.z[1])/2;bikeBody.rotation.x=Math.atan((b.z[0]-b.z[1])/(2*BK.H2));
   bikeParts.lowers.position.y=-(bikeParts.forkL-b.comp[0]*0.95);bikeParts.steer.rotation.y=-b.steer;bikeParts.frontWheel.rotation.x=-b.spin[0];
   const er=BK.EMAX[1]-b.comp[1];bikeParts.rearWheel.position.set(0,-er,0.62);bikeParts.rearWheel.rotation.x=-b.spin[1];
@@ -2642,7 +2662,7 @@ function updateCamera(dt){
   camState.pitch=lerp(camState.pitch,b.pitch,1-Math.exp(-dt*12));
   camera.position.set(eyeW.x,camState.eyeY,eyeW.z);
   const sh=reduceMotion?0:Math.min(0.012,b.chatter*0.0009)*(b.surf==='dirt'?1:1.5);
-  camera.rotation.set(camState.pitch*0.95-CAM.tilt+(Math.random()-0.5)*sh,b.yaw+(Math.random()-0.5)*sh,-b.lean*0.6);
+  camera.rotation.set(camState.pitch*0.95-CAM.tilt+FL.ang+(Math.random()-0.5)*sh,b.yaw+(Math.random()-0.5)*sh,-b.lean*0.6);
   const f=baseFov()+Math.min(6,b.vel.length()*0.4);if(Math.abs(f-camera.fov)>0.05){camera.fov=lerp(camera.fov,f,1-Math.exp(-dt*3));camera.updateProjectionMatrix();}
 }
 let menuT=0;
@@ -3153,6 +3173,7 @@ function updateRider(){
   if(pedalling){hz-=0.1;hy+=0.01-0.03*Math.abs(Math.cos(phi));ta-=0.12;}
   if(braking){hz+=0.07;hy-=0.04;ta+=0.05;}
   if(air){hy+=0.05;hz-=0.07*lean;ta+=0.1*lean-0.04;}
+  if(FL.active){const k=Math.sin(Math.PI*Math.min(1,FL.t/FL.dur));hy-=0.12*k;ta+=0.35*k;} // tuck in tight through a flip
   // landings: the legs and arms soak it up. A kick on touchdown (bigger for more air and a harder hit) drives a springy squat that bottoms out and pushes back up
   if(b.land&&b.land!==R.lastLand){R.lastLand=b.land;const a=b.land.air||0;if(a>0.18)R.abv+=Math.min(9,2.5+a*7+(b.impact||0)*0.5);}
   const sq=(b.comp[0]+b.comp[1])*0.5;R.abv+=(-95*R.ab-7*R.abv)*dt;R.ab+=R.abv*dt;if(R.ab<0){R.ab=0;if(R.abv<0)R.abv*=-0.2;}if(R.ab>1){R.ab=1;R.abv=Math.min(R.abv,0);}
@@ -3288,14 +3309,14 @@ function updateChaseCam(dt){
   let hx=fx,hz=fz;if(hs>1.5&&state==='ride'){const w=clamp((hs-1.5)/3,0,0.6);hx=lerp(fx,b.vel.x/hs,w);hz=lerp(fz,b.vel.z/hs,w);}
   if(!chase.init){chase.dir.set(hx,0,hz).normalize();}
   const kd=state==='crash'?0:1-Math.exp(-dt*3.2);chase.dir.x=lerp(chase.dir.x,hx,kd);chase.dir.z=lerp(chase.dir.z,hz,kd);chase.dir.normalize();
-  const D0=3.3+Math.min(1.3,hs*0.07),H=1.25+Math.min(0.35,hs*0.02);
+  const D0=(3.3+Math.min(1.3,hs*0.07))*(FL.active?0.8:1),H=1.25+Math.min(0.35,hs*0.02);
   // pull in closer when a tree or bush would sit between you and the camera (quick to pull in, slow to ease back out)
   const cl=camClear(b.pos.x,b.pos.z,-chase.dir.x,-chase.dir.z,D0,b.pos.y+H);chase.k=chase.init?(cl<chase.k?lerp(chase.k,cl,1-Math.exp(-dt*14)):lerp(chase.k,cl,1-Math.exp(-dt*1.5))):cl;
   const D=D0*chase.k;const tx=b.pos.x-chase.dir.x*D,tz=b.pos.z-chase.dir.z*D;
   let ty=b.pos.y+H+(1-chase.k)*0.7; /* pulled in close: look over the rider's shoulders */const gh=Math.max(groundH(tx,tz),groundH(lerp(tx,b.pos.x,0.5),lerp(tz,b.pos.z,0.5))-0.2)+0.75;if(ty<gh)ty=gh;
   if(!chase.init){chase.pos.set(tx,ty,tz);chase.init=true;}
   if(state==='crash'){chase.pos.y=Math.max(chase.pos.y,groundH(chase.pos.x,chase.pos.z)+0.6);}
-  else{const kp=1-Math.exp(-dt*8),ky=1-Math.exp(-dt*(b.air>0.2?3.5:7));chase.pos.x=lerp(chase.pos.x,tx,kp);chase.pos.z=lerp(chase.pos.z,tz,kp);chase.pos.y=lerp(chase.pos.y,ty,ky);
+  else{const kp=1-Math.exp(-dt*(FL.active?14:8)),ky=1-Math.exp(-dt*(b.air>0.2?3.5:7));chase.pos.x=lerp(chase.pos.x,tx,kp);chase.pos.z=lerp(chase.pos.z,tz,kp);chase.pos.y=lerp(chase.pos.y,ty,ky);
     chase.pos.y=Math.max(chase.pos.y,groundH(chase.pos.x,chase.pos.z)+0.55);}
   camGuard(chase.pos);chase.pos.y=Math.max(chase.pos.y,groundH(chase.pos.x,chase.pos.z)+0.5);
   camera.position.copy(chase.pos);
@@ -3416,7 +3437,7 @@ function startCareerEvent(i){
     const s=NODE[tr.from].top?2:5;const p={};trailPoint(tr,s,p);const g=(sampleA(tr.base,s+1,1)-sampleA(tr.base,s-1,1))/2;
     placeBike(p.x,p.z,yawOf(p),NODE[tr.from].top?0:Math.min(5,tr.vd[Math.round(s)]*0.6),Math.atan(g));bike.cur=tr;bike.curS=s;bike.finNote=true;
     CR.active=true;CR.idx=i;CR.seg=tr;
-    run.active=true;run.route=[id];run.t=0;run.air=0;run.top=0;run.crashes=0;run.startSeg=tr;updateRunChip();setHint(false);JX.node=null;renderJunctionHUD();
+    run.active=true;run.route=[id];run.t=0;run.air=0;run.top=0;run.crashes=0;run.flips=0;run.startSeg=tr;updateRunChip();setHint(false);JX.node=null;renderJunctionHUD();
     state='ride';showRideUI();$('btnRestart').hidden=false;fade(false);toast(tr.def.name,'Career '+(i+1)+' of '+CAREER_IDS.length+': ride to the end',2000);audio.beep();},320);
 }
 function careerRestart(why){toast('Trail restarted',why,1600);startCareerEvent(CR.idx);}
@@ -3599,7 +3620,7 @@ function predictLanding(){const b=bike;let x=b.pos.x,y=b.pos.y-0.9,z=b.pos.z,vx=
   for(let i=0;i<70;i++){vy-=G*0.04;x+=vx*0.04;y+=vy*0.04;z+=vz*0.04;const g=groundH(x,z);if(y<=g&&vy<0)return Math.atan((groundH(x+hx*0.8,z+hz*0.8)-groundH(x-hx*0.8,z-hz*0.8))/1.6);}
   return b.gAng||0;}
 function updateTiltGauge(){
-  const b=bike;const air=state==='ride'&&!paused&&!b.contact[0]&&!b.contact[1]&&b.air>0.22&&b.vel.y<3;
+  const b=bike;const air=!FL.active&&state==='ride'&&!paused&&!b.contact[0]&&!b.contact[1]&&b.air>0.22&&b.vel.y<3;
   if(!air){if(tiltShown){tiltEl.hidden=true;tiltShown=false;}return;}
   tiltLand=b.landSlope!=null?b.landSlope:predictLanding();
   const err=b.pitch-tiltLand,ae=Math.abs(err);
@@ -3653,7 +3674,7 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min((now-lastT)/1000,0.1);lastT=now;
   if(state==='loading')return;
-  readInput(dt);
+  readInput(dt);if(state==='ride'&&!paused)flipInput();
   if(state==='menu')updateMenuCam(dt);
   else if(state==='garage'){updateBikeVisual();updateGarageCam(dt);}
   else if(!paused){
@@ -3705,7 +3726,7 @@ async function boot(){
   $('loading').hidden=true;$('menu').hidden=false;state='menu';
   setTimeout(()=>{try{$('btnStart').focus({preventScroll:true});}catch(e){}},30);
 }
-window.__setBike=setBikeModel;window.__st={EB,TREESX:TREES,SOL,RIDER,RAG,crash,crashStep,get crashT(){return crashT;},set crashT(v){crashT=v;},CAMT,VSK:()=>VS,chase,bike,input,TR,NET,NODE,locate,groundH,settings,run,stats,camera,CAM,JX,trailPoint,yawOf,respawnOnTrail,respawnTop,placeBike,treeCount:()=>TREES.x.length,LIFT,liftRide,startLift,endLift,updateLift,updateLOD,checkLiftBoarding,
+window.__setBike=setBikeModel;window.__st={FL,tryFlip,flightLeft,EB,TREESX:TREES,SOL,RIDER,RAG,crash,crashStep,get crashT(){return crashT;},set crashT(v){crashT=v;},CAMT,VSK:()=>VS,chase,bike,input,TR,NET,NODE,locate,groundH,settings,run,stats,camera,CAM,JX,trailPoint,yawOf,respawnOnTrail,respawnTop,placeBike,treeCount:()=>TREES.x.length,LIFT,liftRide,startLift,endLift,updateLift,updateLOD,checkLiftBoarding,
   get state(){return state;},set state(v){state=v;},get paused(){return paused;},set paused(v){paused=v;}};
 requestAnimationFrame(frame);
 const start=()=>{boot().catch(err=>{$('loadMsg').textContent='';const e=$('loadErr');e.hidden=false;e.textContent='Something went wrong while building the mountain. Reload the page to try again.';console.error(err);});};
